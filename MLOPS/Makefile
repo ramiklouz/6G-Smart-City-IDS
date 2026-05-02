@@ -97,7 +97,7 @@ format-check:
 	$(PYTHON) -m black . --line-length 100 --check
 
 security:
-	$(PYTHON) -m bandit -r . -x venv -ll
+	$(PYTHON) -m bandit -r . -x ./venv -ll
 
 test:
 	$(PYTHON) -m pytest test_api.py test_pipeline.py test_attack_classifier.py -v --tb=short
