@@ -191,68 +191,128 @@ def get_attack_statistics(hours: int = 24, dataset: Optional[str] = None) -> Dic
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
-        # Base query
-        where_clause = "WHERE timestamp >= datetime('now', '-' || ? || ' hours')"
-        params = [hours]
-
-        if dataset:
-            where_clause += " AND dataset = ?"
-            params.append(dataset)
-
         # Total predictions
-        cursor.execute(
-            f"""
-            SELECT COUNT(*) as total FROM predictions {where_clause}
-        """,
-            params,
-        )
+        if dataset:
+            cursor.execute(
+                """
+                SELECT COUNT(*) as total
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND dataset = ?
+                """,
+                (hours, dataset),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT COUNT(*) as total
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                """,
+                (hours,),
+            )
         total = cursor.fetchone()["total"]
 
         # Malicious vs Benign
-        cursor.execute(
-            f"""
-            SELECT prediction, COUNT(*) as count
-            FROM predictions {where_clause}
-            GROUP BY prediction
-        """,
-            params,
-        )
+        if dataset:
+            cursor.execute(
+                """
+                SELECT prediction, COUNT(*) as count
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND dataset = ?
+                GROUP BY prediction
+                """,
+                (hours, dataset),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT prediction, COUNT(*) as count
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                GROUP BY prediction
+                """,
+                (hours,),
+            )
         prediction_counts = {row["prediction"]: row["count"] for row in cursor.fetchall()}
 
         # Attack types
-        cursor.execute(
-            f"""
-            SELECT attack_type, COUNT(*) as count
-            FROM predictions
-            {where_clause} AND prediction = 'Malicious'
-            GROUP BY attack_type
-            ORDER BY count DESC
-        """,
-            params,
-        )
+        if dataset:
+            cursor.execute(
+                """
+                SELECT attack_type, COUNT(*) as count
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND dataset = ?
+                  AND prediction = 'Malicious'
+                GROUP BY attack_type
+                ORDER BY count DESC
+                """,
+                (hours, dataset),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT attack_type, COUNT(*) as count
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND prediction = 'Malicious'
+                GROUP BY attack_type
+                ORDER BY count DESC
+                """,
+                (hours,),
+            )
         attack_types = {row["attack_type"]: row["count"] for row in cursor.fetchall()}
 
         # Severity distribution
-        cursor.execute(
-            f"""
-            SELECT severity, COUNT(*) as count
-            FROM predictions
-            {where_clause} AND prediction = 'Malicious'
-            GROUP BY severity
-            ORDER BY count DESC
-        """,
-            params,
-        )
+        if dataset:
+            cursor.execute(
+                """
+                SELECT severity, COUNT(*) as count
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND dataset = ?
+                  AND prediction = 'Malicious'
+                GROUP BY severity
+                ORDER BY count DESC
+                """,
+                (hours, dataset),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT severity, COUNT(*) as count
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND prediction = 'Malicious'
+                GROUP BY severity
+                ORDER BY count DESC
+                """,
+                (hours,),
+            )
         severity_dist = {row["severity"]: row["count"] for row in cursor.fetchall()}
 
         # Average confidence
-        cursor.execute(
-            f"""
-            SELECT AVG(confidence) as avg_confidence
-            FROM predictions {where_clause}
-        """,
-            params,
-        )
+        if dataset:
+            cursor.execute(
+                """
+                SELECT AVG(confidence) as avg_confidence
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND dataset = ?
+                """,
+                (hours, dataset),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT AVG(confidence) as avg_confidence
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                """,
+                (hours,),
+            )
         avg_confidence = cursor.fetchone()["avg_confidence"] or 0.0
 
         return {
@@ -272,29 +332,41 @@ def get_predictions_by_time(
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
-        where_clause = "WHERE timestamp >= datetime('now', '-' || ? || ' hours')"
-        params = [hours]
-
         if dataset:
-            where_clause += " AND dataset = ?"
-            params.append(dataset)
-
-        cursor.execute(
-            f"""
-            SELECT
-                strftime('%Y-%m-%d %H:%M', timestamp,
-                    '-' || (strftime('%M', timestamp) % ?) || ' minutes') as time_bucket,
-                COUNT(*) as total,
-                SUM(CASE WHEN prediction = 'Malicious' THEN 1 ELSE 0 END) as malicious,
-                SUM(CASE WHEN prediction = 'Benign' THEN 1 ELSE 0 END) as benign,
-                AVG(confidence) as avg_confidence
-            FROM predictions
-            {where_clause}
-            GROUP BY time_bucket
-            ORDER BY time_bucket
-        """,
-            [interval_minutes] + params,
-        )
+            cursor.execute(
+                """
+                SELECT
+                    strftime('%Y-%m-%d %H:%M', timestamp,
+                        '-' || (strftime('%M', timestamp) % ?) || ' minutes') as time_bucket,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN prediction = 'Malicious' THEN 1 ELSE 0 END) as malicious,
+                    SUM(CASE WHEN prediction = 'Benign' THEN 1 ELSE 0 END) as benign,
+                    AVG(confidence) as avg_confidence
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                  AND dataset = ?
+                GROUP BY time_bucket
+                ORDER BY time_bucket
+                """,
+                (interval_minutes, hours, dataset),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT
+                    strftime('%Y-%m-%d %H:%M', timestamp,
+                        '-' || (strftime('%M', timestamp) % ?) || ' minutes') as time_bucket,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN prediction = 'Malicious' THEN 1 ELSE 0 END) as malicious,
+                    SUM(CASE WHEN prediction = 'Benign' THEN 1 ELSE 0 END) as benign,
+                    AVG(confidence) as avg_confidence
+                FROM predictions
+                WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                GROUP BY time_bucket
+                ORDER BY time_bucket
+                """,
+                (interval_minutes, hours),
+            )
 
         return [dict(row) for row in cursor.fetchall()]
 
