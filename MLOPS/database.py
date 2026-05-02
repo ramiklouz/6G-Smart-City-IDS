@@ -157,9 +157,7 @@ def log_prediction(
     return prediction_id
 
 
-def get_recent_predictions(
-    limit: int = 100, dataset: Optional[str] = None
-) -> List[Dict]:
+def get_recent_predictions(limit: int = 100, dataset: Optional[str] = None) -> List[Dict]:
     """Get recent predictions"""
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -188,9 +186,7 @@ def get_recent_predictions(
         return [dict(row) for row in rows]
 
 
-def get_attack_statistics(
-    hours: int = 24, dataset: Optional[str] = None
-) -> Dict[str, Any]:
+def get_attack_statistics(hours: int = 24, dataset: Optional[str] = None) -> Dict[str, Any]:
     """Get attack statistics for the last N hours"""
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -221,9 +217,7 @@ def get_attack_statistics(
         """,
             params,
         )
-        prediction_counts = {
-            row["prediction"]: row["count"] for row in cursor.fetchall()
-        }
+        prediction_counts = {row["prediction"]: row["count"] for row in cursor.fetchall()}
 
         # Attack types
         cursor.execute(
@@ -379,9 +373,7 @@ def refresh_statistics(dataset: str) -> None:
             """,
             (dataset,),
         )
-        attack_dist = json.dumps(
-            {r["attack_type"]: r["cnt"] for r in cursor.fetchall()}
-        )
+        attack_dist = json.dumps({r["attack_type"]: r["cnt"] for r in cursor.fetchall()})
 
         # Upsert: delete today's row for this dataset, then insert fresh aggregation
         cursor.execute(
@@ -425,8 +417,7 @@ def get_statistics_summary(dataset: Optional[str] = None) -> List[Dict]:
                 (dataset,),
             )
         else:
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT s.*
                 FROM statistics s
                 INNER JOIN (
@@ -437,8 +428,7 @@ def get_statistics_summary(dataset: Optional[str] = None) -> List[Dict]:
                 ON s.dataset = latest_rows.dataset
                 AND s.timestamp = latest_rows.latest
                 ORDER BY s.dataset
-                """
-            )
+                """)
         return [dict(r) for r in cursor.fetchall()]
 
 

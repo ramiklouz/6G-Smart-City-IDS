@@ -18,8 +18,14 @@ from elk_logger import get_elk_logger
 
 DATASETS = ["eMBB", "mMTC", "URLLC", "TON_IoT"]
 ATTACKS = [
-    "Benign", "DDoS", "Reconnaissance", "Injection",
-    "Brute Force", "Backdoor", "Ransomware", "XSS",
+    "Benign",
+    "DDoS",
+    "Reconnaissance",
+    "Injection",
+    "Brute Force",
+    "Backdoor",
+    "Ransomware",
+    "XSS",
 ]
 SEVERITIES = ["Low", "Medium", "High", "Critical"]
 
@@ -152,9 +158,7 @@ def seed_predictions(n: int):
         is_malicious = random.random() < 0.35
         dataset = random.choice(DATASETS)
         attack = random.choice(ATTACKS[1:]) if is_malicious else "Benign"
-        severity = (
-            random.choice(SEVERITIES) if is_malicious else "Low"
-        )
+        severity = random.choice(SEVERITIES) if is_malicious else "Low"
         confidence = round(random.uniform(0.55, 0.99), 4)
         alert = "Confirmed Attack" if is_malicious else "Benign Traffic"
 
@@ -189,7 +193,9 @@ def seed_predictions(n: int):
 def main():
     parser = argparse.ArgumentParser(description="ELK integration test suite")
     parser.add_argument(
-        "--seed", type=int, default=0,
+        "--seed",
+        type=int,
+        default=0,
         help="Seed N fake predictions into Elasticsearch for Kibana demos",
     )
     args = parser.parse_args()

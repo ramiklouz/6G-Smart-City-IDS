@@ -194,9 +194,7 @@ def predict(req: PredictRequest):
 
                 # Generate visualizations
                 response["visualizations"] = {
-                    "bar_plot": explainer.generate_bar_plot(
-                        shap_explanation["feature_importance"]
-                    ),
+                    "bar_plot": explainer.generate_bar_plot(shap_explanation["feature_importance"]),
                     "waterfall_plot": explainer.generate_waterfall_plot(
                         shap_values, base_value, feature_names, feature_values
                     ),
@@ -277,9 +275,7 @@ def get_attack_stats(hours: int = 24, dataset: Optional[str] = None):
 
 
 @app.get("/stats/timeline")
-def get_timeline_stats(
-    hours: int = 24, interval_minutes: int = 60, dataset: Optional[str] = None
-):
+def get_timeline_stats(hours: int = 24, interval_minutes: int = 60, dataset: Optional[str] = None):
     """Get predictions grouped by time intervals"""
     try:
         timeline = get_predictions_by_time(
@@ -359,6 +355,7 @@ def should_retrain_model(dataset: str):
 # HEALTH & MODEL MANAGEMENT ENDPOINTS
 # =============================================================================
 
+
 @app.get("/health")
 def health_check():
     """Detailed health check: API status, loaded models, and database."""
@@ -370,9 +367,7 @@ def health_check():
         entry = {
             "cached": name in MODEL_CACHE,
             "file_exists": path.exists(),
-            "file_size_mb": (
-                round(path.stat().st_size / 1_048_576, 2) if path.exists() else None
-            ),
+            "file_size_mb": (round(path.stat().st_size / 1_048_576, 2) if path.exists() else None),
         }
         if name in MODEL_CACHE:
             entry["features"] = MODEL_CACHE[name].get("features", [])
@@ -417,6 +412,7 @@ def list_models():
 # BATCH PREDICTION ENDPOINT
 # =============================================================================
 
+
 class BatchPredictRequest(BaseModel):
     dataset: str
     samples: List[Dict[str, Any]]
@@ -429,9 +425,7 @@ def batch_predict(req: BatchPredictRequest):
     if not req.samples:
         raise HTTPException(status_code=400, detail="samples list cannot be empty")
     if len(req.samples) > 1000:
-        raise HTTPException(
-            status_code=400, detail="Maximum 1 000 samples per batch request"
-        )
+        raise HTTPException(status_code=400, detail="Maximum 1 000 samples per batch request")
 
     start_time = time.time()
     bundle = load_bundle(req.dataset)
@@ -455,10 +449,7 @@ def batch_predict(req: BatchPredictRequest):
         pred_label = label_encoder.inverse_transform([int(pred)])[0]
         confidence = float(max(probas[i])) if probas is not None else 0.0
         proba = (
-            {
-                label_encoder.classes_[j]: float(probas[i][j])
-                for j in range(len(probas[i]))
-            }
+            {label_encoder.classes_[j]: float(probas[i][j]) for j in range(len(probas[i]))}
             if probas is not None
             else None
         )
@@ -467,9 +458,7 @@ def batch_predict(req: BatchPredictRequest):
         alert_status = (
             "False Alarm (Low Confidence)"
             if confidence < 0.7 and pred_label == "Malicious"
-            else "Confirmed Attack"
-            if pred_label == "Malicious"
-            else "Benign Traffic"
+            else "Confirmed Attack" if pred_label == "Malicious" else "Benign Traffic"
         )
         results.append(
             {
@@ -498,6 +487,7 @@ def batch_predict(req: BatchPredictRequest):
 # =============================================================================
 # ELK / MONITORING STATUS ENDPOINT
 # =============================================================================
+
 
 @app.get("/elk/status")
 def elk_status():

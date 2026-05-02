@@ -283,9 +283,7 @@ class ELKLogger:
             while not self._stop_event.wait(interval_seconds):
                 self.log_system_metrics()
 
-        self._system_thread = threading.Thread(
-            target=_loop, daemon=True, name="elk-sys-metrics"
-        )
+        self._system_thread = threading.Thread(target=_loop, daemon=True, name="elk-sys-metrics")
         self._system_thread.start()
         print(f"📊 System metrics → Elasticsearch every {interval_seconds}s")
 
