@@ -339,7 +339,11 @@ def train_model(dataset_name=None):
         import os
 
         os.environ.setdefault("MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", "true")
-        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+        if not tracking_uri:
+            tracking_uri = (
+                "sqlite:///mlflow.db" if os.environ.get("CI") else "http://localhost:5000"
+            )
         experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", MLFLOW_EXPERIMENT_NAME)
 
         mlflow.set_tracking_uri(tracking_uri)
