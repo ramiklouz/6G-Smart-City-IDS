@@ -1,5 +1,9 @@
 # 🛡️ 6G Intrusion Detection System (IDS)
 
+> [!IMPORTANT]
+> **🚀 PROJECT HAS EVOLVED INTO A PRODUCTION MLOPS PIPELINE 🚀**
+> The main active codebase is now located in the `MLOPS/` directory. Please see [MLOPS/README.md](MLOPS/README.md) and [MLOPS/PROJECT_SUMMARY.md](MLOPS/PROJECT_SUMMARY.md) for the complete, containerized CI/CD pipeline, FastAPI backend, and new React frontend. The instructions below refer to the legacy standalone prototype.
+
 A comprehensive machine learning-based intrusion detection system for 6G network slices, featuring an ensemble of XGBoost, Random Forest, and MLP models with an interactive Streamlit interface.
 
 ---

@@ -40,14 +40,17 @@ EXPOSE 5000
 # ── Environment variables ─────────────────────────────────────────────────────
 ENV MLFLOW_TRACKING_URI=http://localhost:5000
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # ── Entrypoint script ─────────────────────────────────────────────────────────
 # Starts MLflow in the background, then launches FastAPI
 CMD mlflow server \
         --backend-store-uri sqlite:///mlflow.db \
-        --default-artifact-root ./mlruns \
+        --serve-artifacts \
+        --artifacts-destination ./mlruns \
+        --default-artifact-root mlflow-artifacts:/ \
         --host 0.0.0.0 \
         --port 5000 & \
-    uvicorn app:app \
+    uvicorn api.app:app \
         --host 0.0.0.0 \
         --port 8000

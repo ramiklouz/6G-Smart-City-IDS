@@ -24,7 +24,7 @@ ES_PORT     := 9200
 KIBANA_PORT := 5601
 
 .PHONY: all install venv list-data prepare train train-all evaluate api api-bg \
-        mlflow mlflow-bg lint format format-check security test \
+        dashboard dashboard-bg mlflow mlflow-bg mlflow-fix-artifacts lint format format-check security test \
         docker-build docker-run docker-stop docker-push docker-images docker-clean \
         monitoring-up monitoring-down monitoring-status clean help
 
@@ -48,40 +48,53 @@ install:
 # ======================
 
 list-data:
-	$(PYTHON) main.py --list-data
+	$(PYTHON) -m scripts.main --list-data
 
 prepare:
-	$(PYTHON) main.py --prepare --dataset $(DATASET)
+	$(PYTHON) -m scripts.main --prepare --dataset $(DATASET)
 
 train:
-	$(PYTHON) main.py --train --dataset $(DATASET)
+	$(PYTHON) -m scripts.main --train --dataset $(DATASET)
 
 train-all:
-	$(PYTHON) main.py --all
+	$(PYTHON) -m scripts.main --all
 
 evaluate:
-	$(PYTHON) main.py --evaluate --dataset $(DATASET)
+	$(PYTHON) -m scripts.main --evaluate --dataset $(DATASET)
 
 # ======================
 # API
 # ======================
 
 api:
-	$(PYTHON) -m uvicorn app:app --reload --host 0.0.0.0 --port $(API_PORT)
+	$(PYTHON) -m uvicorn api.app:app --reload --host 0.0.0.0 --port $(API_PORT)
 
 api-bg:
-	start "6G IDS API" /B $(PYTHON) -m uvicorn app:app --host 0.0.0.0 --port $(API_PORT)
+	start "6G IDS API" /B $(PYTHON) -m uvicorn api.app:app --host 0.0.0.0 --port $(API_PORT)
+
+# ======================
+# DASHBOARD
+# ======================
+
+dashboard:
+	streamlit run frontend/dashboard.py
+
+dashboard-bg:
+	start "6G IDS Dashboard" /B streamlit run frontend/dashboard.py
 
 # ======================
 # MLFLOW
 # ======================
 
 mlflow:
-	mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --host 0.0.0.0 --port $(MLFLOW_PORT)
+	mlflow server --backend-store-uri sqlite:///mlflow.db --serve-artifacts --artifacts-destination ./mlruns --default-artifact-root mlflow-artifacts:/ --host 0.0.0.0 --port $(MLFLOW_PORT)
 
 mlflow-bg:
-	start "MLflow" /B mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --host 0.0.0.0 --port $(MLFLOW_PORT)
+	start "MLflow" /B mlflow server --backend-store-uri sqlite:///mlflow.db --serve-artifacts --artifacts-destination ./mlruns --default-artifact-root mlflow-artifacts:/ --host 0.0.0.0 --port $(MLFLOW_PORT)
 	@echo MLflow UI: http://localhost:$(MLFLOW_PORT)
+
+mlflow-fix-artifacts:
+	$(PYTHON) -m scripts.fix_mlflow_artifacts
 
 # ======================
 # CODE QUALITY
@@ -91,16 +104,16 @@ lint:
 	$(PYTHON) -m flake8 . --jobs=1 --max-line-length=100 --exclude=$(VENV),__pycache__,.git
 
 format:
-	$(PYTHON) -m black . --line-length 100
+	$(PYTHON) -m black . --line-length 100 --no-cache
 
 format-check:
-	$(PYTHON) -m black . --line-length 100 --check
+	$(PYTHON) -m black . --line-length 100 --check --no-cache
 
 security:
 	$(PYTHON) -m bandit -r . -x ./venv -ll
 
 test:
-	$(PYTHON) -m pytest test_api.py test_pipeline.py test_attack_classifier.py -v --tb=short
+	$(PYTHON) -m pytest tests/test_api.py tests/test_pipeline.py tests/test_attack_classifier.py -v --tb=short
 
 # ======================
 # DOCKER
@@ -134,27 +147,27 @@ docker-images:
 # ======================
 
 monitoring-up:
-	docker compose -f docker-compose.monitoring.yml up -d
+	docker compose -f docker/docker-compose.monitoring.yml up -d
 	@echo Elasticsearch: http://localhost:$(ES_PORT)
 	@echo Kibana: http://localhost:$(KIBANA_PORT)
 
 monitoring-down:
-	docker compose -f docker-compose.monitoring.yml down
+	docker compose -f docker/docker-compose.monitoring.yml down
 
 monitoring-status:
 	$(PYTHON) -c "import json, urllib.request; print(json.dumps(json.load(urllib.request.urlopen('http://localhost:$(ES_PORT)/_cluster/health')), indent=2))"
 
 elk-test:
-	$(PYTHON) -c "from elk_logger import get_elk_logger; elk=get_elk_logger(); elk.log_model_metrics('eMBB',0.9483,0.9483,0.9926,'test'); print('[OK] Test metrics sent to Elasticsearch')"
+	$(PYTHON) -c "from core.elk_logger import get_elk_logger; elk=get_elk_logger(); elk.log_model_metrics('eMBB',0.9483,0.9483,0.9926,'test'); print('[OK] Test metrics sent to Elasticsearch')"
 
 elk-status:
-	$(PYTHON) -c "from elk_logger import get_elk_logger; import json; print(json.dumps(get_elk_logger().status(), indent=2))"
+	$(PYTHON) -c "from core.elk_logger import get_elk_logger; import json; print(json.dumps(get_elk_logger().status(), indent=2))"
 
 elk-indices:
 	$(PYTHON) -c "import json, urllib.request; data=json.load(urllib.request.urlopen('http://localhost:$(ES_PORT)/_cat/indices?format=json')); [print(f'{d[\"index\"]:<25} {d[\"docs.count\"]:>8} docs') for d in sorted(data, key=lambda x: x['index']) if d['index'].startswith('ids-')]"
 
 full-up:
-	docker compose -f docker-compose.full.yml up -d --build
+	docker compose -f docker/docker-compose.full.yml up -d --build
 	@echo.
 	@echo   FastAPI  : http://localhost:8000
 	@echo   MLflow   : http://localhost:5000
@@ -162,7 +175,7 @@ full-up:
 	@echo   Elasticsearch: http://localhost:9200
 
 full-down:
-	docker compose -f docker-compose.full.yml down
+	docker compose -f docker/docker-compose.full.yml down
 
 # ======================
 # CLEAN
@@ -182,10 +195,13 @@ clean:
 help:
 	@echo Available commands:
 	@echo   make install          - install dependencies
-	@echo   make train            - train all models
+	@echo   make train            - train one model, use DATASET=eMBB/mMTC/URLLC/TON_IoT
+	@echo   make train-all        - train all models
 	@echo   make test             - run all 39 tests
 	@echo   make api              - start FastAPI on :8000
+	@echo   make dashboard        - start Streamlit dashboard on :8501
 	@echo   make mlflow           - start MLflow UI on :5000
+	@echo   make mlflow-fix-artifacts - fix MLflow artifact root for future runs
 	@echo   make docker-build     - build Docker image
 	@echo   make docker-run       - run Docker container
 	@echo   make monitoring-up    - start Elasticsearch + Kibana
